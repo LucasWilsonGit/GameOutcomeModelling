@@ -1,0 +1,5 @@
+narwhals==2.5.0
+numpy==2.3.3
+packaging==25.0
+plotly==6.3.0
+tqdm==4.67.1
