@@ -1,14 +1,8 @@
 import numpy as np
-from tqdm import tqdm
 
+
+from simulator import *
 from plot_helper import *
-
-class Player:
-    def __init__(self):
-        self.rating = 0
-    
-    def step_trial(self):
-        raise NotImplementedError()
 
 class LeaguePlayer:
     base_wr=0.53
@@ -38,62 +32,18 @@ class LeaguePlayer:
         
         self.process_match_outcome(is_win, has_troll)
 
-def make_league_player_factory_factory(delta_wr: float, p_troll: float):
-    def impl():
-        return LeaguePlayer(delta_wr, p_troll)
-    return impl 
+class LeagueSimulator(Simulator):
+    n_trials = 1000
+    n_games = 200
+    Plotter = Candlestick3DPlotter()
 
-def simulate_games(
-    n_runs=10000,
-    n_games=200,
-    player_factory=make_league_player_factory_factory(.025, .05) 
-) -> "tuple[float, float, float, float, float]":
-    """
-    Simulates n_runs players over n_games and returns
-    (mean, q25, q75, q05, q95).
-    """
-    ratings_final = np.zeros(n_runs)
+    def __init__(self):
+        super().__init__(LeaguePlayer, n_trials=self.n_trials, n_games=self.n_games)
 
-    for run in range(n_runs):
-        player = player_factory()
-        for g in range(n_games):
-            player.step_trial()
-        ratings_final[run] = player.rating
+# Sweep parameter definitions
+delta_wr_param = Parameter("delta_wr", values = np.linspace(0.0, 0.05, 10))
+p_troll_param = Parameter("p_troll", values = np.linspace(0.0, .5, 10))
 
-    return (
-        ratings_final.mean(),
-        np.percentile(ratings_final, 25),
-        np.percentile(ratings_final, 75),
-        np.percentile(ratings_final, 5),
-        np.percentile(ratings_final, 95),
-    )
-
-# Sweep ranges
-p_troll_vals = np.linspace(0.0, 1, 10)
-delta_wr_vals = np.linspace(0.0, 0.05, 10)
-
-results_matrix = np.zeros((len(delta_wr_vals), len(p_troll_vals)), dtype=object)
-
-# Progress bar over grid
-for i, dwr in enumerate(tqdm(delta_wr_vals, desc="Sweeping Δ_wr")):
-    for j, pt in enumerate(tqdm(p_troll_vals, desc="Sweeping p_troll", leave=False)):
-        results_matrix[i, j] = simulate_games(
-            n_runs=100,
-            n_games=200,
-            player_factory=make_league_player_factory_factory(dwr, pt)
-        )
-
-means = np.array([results_matrix[i, j][0] for i in range(len(delta_wr_vals)) for j in range(len(p_troll_vals))])
-q25s  = np.array([results_matrix[i, j][1] for i in range(len(delta_wr_vals)) for j in range(len(p_troll_vals))])
-q75s  = np.array([results_matrix[i, j][2] for i in range(len(delta_wr_vals)) for j in range(len(p_troll_vals))])
-q05s  = np.array([results_matrix[i, j][3] for i in range(len(delta_wr_vals)) for j in range(len(p_troll_vals))])
-q95s  = np.array([results_matrix[i, j][4] for i in range(len(delta_wr_vals)) for j in range(len(p_troll_vals))])
-
-# Bar dimensions
-bar_sx = 1/10
-bar_sy = 0.05/10
-
-X, Y = np.meshgrid(p_troll_vals, delta_wr_vals)
-X, Y = (X.flatten(), Y.flatten())
-
-plot_with_mesh(X, Y, q25s, q75s, q05s, q95s, bar_sx=0.1, bar_sy=0.005)
+# Sweep with progress bar
+simulator = LeagueSimulator()
+simulator.simulate(delta_wr_param, p_troll_param)
