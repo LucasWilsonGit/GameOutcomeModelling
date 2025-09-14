@@ -1,5 +1,5 @@
 import numpy as np
-from plot_helper import Plotter
+from .plot_helper import Plotter
 from tqdm import tqdm
 
 class Parameter:
